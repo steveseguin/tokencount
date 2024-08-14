@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LLM Token Counter</title>
+    <title>LLM Token Counter and Compressor</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -46,6 +46,7 @@
             border: none;
             padding: 0.5rem 1rem;
             margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
             border-radius: 5px;
             cursor: pointer;
             transition: background-color 0.3s;
@@ -63,18 +64,24 @@
             font-weight: bold;
             color: #3498db;
         }
+        #compressionInfo {
+            margin-top: 0.5rem;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>LLM Token Counter</h1>
+        <h1>LLM Token Counter and Compressor</h1>
         <p>Enter your text below to get an approximate token count:</p>
         <textarea id="inputText" placeholder="Enter your text here..."></textarea>
         <button onclick="countTokens()">Count Tokens</button>
         <button onclick="resetCount()">Reset Count</button>
+        <button onclick="compressText()">Compress</button>
         <div class="result-container">
             <p>Current token count: <span id="currentCount" class="result">0</span></p>
             <p>Running total: <span id="runningTotal" class="result">0</span></p>
+            <p id="compressionInfo"></p>
         </div>
     </div>
 
@@ -88,6 +95,7 @@
             
             runningTotal += tokenCount;
             document.getElementById('runningTotal').textContent = runningTotal;
+            document.getElementById('compressionInfo').textContent = '';
         }
 
         function estimateTokens(text) {
@@ -100,6 +108,68 @@
             document.getElementById('currentCount').textContent = '0';
             runningTotal = 0;
             document.getElementById('runningTotal').textContent = '0';
+            document.getElementById('compressionInfo').textContent = '';
+        }
+
+        function compressText() {
+            let text = document.getElementById('inputText').value;
+            const originalTokenCount = estimateTokens(text);
+            
+            // Remove extra spaces
+            text = text.replace(/\s+/g, ' ');
+            
+            // Remove spaces before punctuation
+            text = text.replace(/\s+([.,!?:;])/g, '$1');
+            
+            // Remove unnecessary newlines, but keep one for paragraph breaks
+            text = text.replace(/\n+/g, '\n').trim();
+            
+            // Compress common words
+            const compressions = {
+                'and': '&',
+                'at': '@',
+                'to': '2',
+                'for': '4',
+                'too': '2',
+                'you': 'u',
+                'are': 'r',
+                'why': 'y',
+                'because': 'bc',
+                'please': 'pls',
+                'through': 'thru',
+                'before': 'b4',
+                'okay': 'ok',
+                'thanks': 'thx',
+                'with': 'w/',
+                'without': 'w/o'
+            };
+            
+            for (let [word, replacement] of Object.entries(compressions)) {
+                let regex = new RegExp('\\b' + word + '\\b', 'gi');
+                text = text.replace(regex, replacement);
+            }
+            
+            // Special handling for code: preserve indentation and newlines within code blocks
+            text = text.replace(/```[\s\S]*?```/g, function(match) {
+                return match.replace(/\n+/g, '\n').trim();
+            });
+            
+            document.getElementById('inputText').value = text;
+            
+            const newTokenCount = estimateTokens(text);
+            const tokensSaved = originalTokenCount - newTokenCount;
+            const percentReduction = ((tokensSaved / originalTokenCount) * 100).toFixed(2);
+            
+            // Update current count
+            document.getElementById('currentCount').textContent = newTokenCount;
+            
+            // Update running total
+            runningTotal = runningTotal - originalTokenCount + newTokenCount;
+            document.getElementById('runningTotal').textContent = runningTotal;
+            
+            // Display compression info
+            document.getElementById('compressionInfo').textContent = 
+                `Compression saved ${tokensSaved} tokens (${percentReduction}% reduction)`;
         }
     </script>
 </body>
