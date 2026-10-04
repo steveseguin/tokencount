@@ -115,45 +115,61 @@
             let text = document.getElementById('inputText').value;
             const originalTokenCount = estimateTokens(text);
             
-            // Remove extra spaces
-            text = text.replace(/\s+/g, ' ');
-            
-            // Remove spaces before punctuation
-            text = text.replace(/\s+([.,!?:;])/g, '$1');
-            
-            // Remove unnecessary newlines, but keep one for paragraph breaks
-            text = text.replace(/\n+/g, '\n').trim();
-            
-            // Compress common words
-            const compressions = {
-                'and': '&',
-                'at': '@',
-                'to': '2',
-                'for': '4',
-                'too': '2',
-                'you': 'u',
-                'are': 'r',
-                'why': 'y',
-                'because': 'bc',
-                'please': 'pls',
-                'through': 'thru',
-                'before': 'b4',
-                'okay': 'ok',
-                'thanks': 'thx',
-                'with': 'w/',
-                'without': 'w/o'
-            };
-            
-            for (let [word, replacement] of Object.entries(compressions)) {
-                let regex = new RegExp('\\b' + word + '\\b', 'gi');
-                text = text.replace(regex, replacement);
+            // Leave fenced code byte-for-byte intact; compress only prose between blocks.
+            const parts = [];
+            let end = 0;
+            const fences = /^ {0,3}(`{3,})[^`\r\n]*\r?\n[\s\S]*?^ {0,3}\1`*[ \t]*(?=\r?$)/gm;
+            for (const match of text.matchAll(fences)) {
+                parts.push(text.slice(end, match.index), match[0]);
+                end = match.index + match[0].length;
             }
+            parts.push(text.slice(end));
+            parts[0] = parts[0].trimStart();
+            parts[parts.length - 1] = parts[parts.length - 1].trimEnd();
+            text = parts.map((part, index, parts) => {
+                if (index % 2 === 1) return part;
+                if (/^\s*$/.test(part)) return part;
+                const leading = index > 0 ? part.match(/^\s*/)[0] : '';
+                const trailing = index < parts.length - 1 ? part.match(/\s*$/)[0] : '';
+                let text = part.slice(leading.length, part.length - trailing.length);
+
+                // Remove extra spaces
+                text = text.replace(/\s+/g, ' ');
             
-            // Special handling for code: preserve indentation and newlines within code blocks
-            text = text.replace(/```[\s\S]*?```/g, function(match) {
-                return match.replace(/\n+/g, '\n').trim();
-            });
+                // Remove spaces before punctuation
+                text = text.replace(/\s+([.,!?:;])/g, '$1');
             
+                // Remove unnecessary newlines, but keep one for paragraph breaks
+                text = text.replace(/\n+/g, '\n');
+            
+                // Compress common words
+                const compressions = {
+                    'and': '&',
+                    'at': '@',
+                    'to': '2',
+                    'for': '4',
+                    'too': '2',
+                    'you': 'u',
+                    'are': 'r',
+                    'why': 'y',
+                    'because': 'bc',
+                    'please': 'pls',
+                    'through': 'thru',
+                    'before': 'b4',
+                    'okay': 'ok',
+                    'thanks': 'thx',
+                    'with': 'w/',
+                    'without': 'w/o'
+                };
+            
+                for (let [word, replacement] of Object.entries(compressions)) {
+                    let regex = new RegExp('\\b' + word + '\\b', 'gi');
+                    text = text.replace(regex, replacement);
+                }
+            
+                return leading + text + trailing;
+            }).join('');
+
             document.getElementById('inputText').value = text;
             
             const newTokenCount = estimateTokens(text);
@@ -174,3 +190,4 @@
     </script>
 </body>
 </html>
+
